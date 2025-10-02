@@ -1,0 +1,28 @@
+[package]
+name = "oidc-exchange"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.100"
+bytes = "1.10.1"
+chrono = "0.4.42"
+config = "0.15.18"
+dropshot = "0.16.4"
+futures-util = "0.3.31"
+jsonwebtoken = { version = "10.0.0", features = ["rsa", "rust_crypto"] }
+oxide = "0.13.0"
+reqwest = { version = "0.12.23", default-features = false, features = ["http2", "json", "rustls-tls"] }
+schemars = "0.8.22"
+secrecy = { version = "0.10.3", features = ["serde"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
+slog = "2.7.0"
+slog-async = "2.8.0"
+tap = "1.0.1"
+thiserror = "2.0.17"
+tokio = { version = "1.47.1", features = ["macros", "rt-multi-thread"] }
+tracing = "0.1.41"
+tracing-appender = "0.2.3"
+tracing-slog = { git = "ssh://git@github.com/oxidecomputer/tracing-slog.git" }
+tracing-subscriber = { version = "0.3.20", features = ["env-filter", "json"] }
