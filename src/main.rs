@@ -48,7 +48,7 @@ async fn main() -> Result<(), anyhow::Error> {
     ));
     let context = Context::new(settings).await?;
 
-    tracing::info!(?context, "Loaded settings");
+    tracing::info!("Constructed context");
 
     let http = server(ServerConfig {
         context,
