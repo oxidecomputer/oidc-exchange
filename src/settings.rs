@@ -1,7 +1,6 @@
 use config::{Config, ConfigError, File};
 use secrecy::SecretString;
 use serde::Deserialize;
-use std::collections::HashMap;
 
 use crate::{oidc::OidcProvider, providers::Claims};
 
@@ -12,8 +11,14 @@ pub struct Host(pub String);
 pub struct User(pub String);
 
 #[derive(Debug, Deserialize, Hash, PartialEq, Eq)]
-pub struct TokenAuthorization {
+pub struct TokenClaims {
+    pub audience: String,
     pub claims: Claims,
+}
+
+#[derive(Debug, Deserialize, Hash, PartialEq, Eq)]
+pub struct TokenAuthorization {
+    pub token: TokenClaims,
     pub host: Host,
     pub user: User,
     pub duration: u32,

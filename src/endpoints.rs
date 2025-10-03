@@ -6,6 +6,7 @@ use oxide::ClientConsoleAuthExt;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::pin::Pin;
+use tap::TapFallible;
 
 use crate::{
     CLIENT_ID,
@@ -37,8 +38,26 @@ pub async fn exchange(
     let ctx = rqctx.context();
     let token = body.into_inner().token;
     for provider in &ctx.providers {
+        tracing::info!(
+            issuer = provider.config.issuer,
+            "Testing token against provider"
+        );
+
         for authz in &provider.token_authorizations {
-            if let Ok(_) = provider.config.validate(&token, &authz.claims) {
+            tracing::info!(
+                issuer = provider.config.issuer,
+                host = authz.host.0,
+                user = authz.user.0,
+                "Testing if token matches authorization"
+            );
+
+            if let Ok(_) = provider
+                .config
+                .validate(&token, &authz.token)
+                .tap_err(|err| {
+                    tracing::info!(?err, "Failed to validate token");
+                })
+            {
                 let expires_at = Utc::now().timestamp().max(0) as u32 + authz.duration;
 
                 // The OIDC token matches a validation schema and we now need to construct a new

@@ -7,7 +7,7 @@ use std::{fmt::Debug, str::FromStr};
 use thiserror::Error;
 use tracing::instrument;
 
-use crate::providers::Claims;
+use crate::{providers::Claims, settings::TokenClaims};
 
 #[derive(Debug, Error)]
 pub enum OidcError {
@@ -87,18 +87,18 @@ impl OidcConfig {
 
 #[derive(Debug)]
 pub struct ResolvedOidcConfig {
-    issuer: String,
-    jwks: JwkSet,
-    subject_types_supported: Vec<String>,
-    response_types_supported: Vec<String>,
-    claims_supported: Vec<String>,
-    id_token_signing_alg_values_supported: Vec<Algorithm>,
-    scopes_supported: Vec<String>,
+    pub issuer: String,
+    pub jwks: JwkSet,
+    pub subject_types_supported: Vec<String>,
+    pub response_types_supported: Vec<String>,
+    pub claims_supported: Vec<String>,
+    pub id_token_signing_alg_values_supported: Vec<Algorithm>,
+    pub scopes_supported: Vec<String>,
 }
 
 impl ResolvedOidcConfig {
     #[instrument(skip(self, token))]
-    pub fn validate(&self, token: &str, claims: &Claims) -> Result<(), OidcError> {
+    pub fn validate(&self, token: &str, expected_claims: &TokenClaims) -> Result<(), OidcError> {
         let header = jsonwebtoken::decode_header(token).map_err(OidcError::InvalidHeader)?;
         let kid = header.kid.ok_or(OidcError::MissingKid)?;
         let jwk = self
@@ -112,12 +112,18 @@ impl ResolvedOidcConfig {
                 .key_algorithm
                 .ok_or(OidcError::MissingKeyAlgorithm)?,
         )?);
+        validation.set_audience(&[&expected_claims.audience]);
         validation.set_issuer(&[&self.issuer]);
 
-        let token = jsonwebtoken::decode::<Claims>(token, &decoding_key, &validation)
-            .map_err(OidcError::InvalidToken)?;
+        let token =
+            jsonwebtoken::decode::<Claims>(token, &decoding_key, &validation).map_err(|err| {
+                tracing::info!(?err, expected = ?expected_claims.audience, "Audience does not match");
+                OidcError::InvalidToken(err)
+            })?;
 
-        if claims.validate(&token.claims) {
+        tracing::info!(token = ?token.claims, authorization = ?expected_claims, "Testing token claims");
+
+        if expected_claims.claims.validate(&token.claims) {
             Ok(())
         } else {
             tracing::info!("Claims did not match validator");

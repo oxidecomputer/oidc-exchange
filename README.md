@@ -34,7 +34,10 @@ token so that it expires one hour after it is issued.
 host = "https://demo.sys.rack.company.tld"
 user = "user@oxidecomputer.com"
 duration = 3600
-claims = { github = { repository = "company-organization/repo", ref = "refs/head/main" } }
+
+[providers.token_authorizations.token]
+audience = "https://github.com/company-organization"
+claims = { repository = "company-organization/repo", ref = "refs/heads/main" }
 ```
 
 Currently the only way to provision new access tokens for the Oxide API is to have

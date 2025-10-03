@@ -4,6 +4,7 @@ use serde::Deserialize;
 pub mod github;
 
 #[derive(Debug, Clone, Deserialize, Hash, PartialEq, Eq)]
+#[serde(untagged)]
 pub enum Claims {
     #[serde(rename = "github")]
     GitHub(GithubOidcClaims),

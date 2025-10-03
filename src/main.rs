@@ -18,7 +18,7 @@ mod providers;
 mod server;
 mod settings;
 
-static CLIENT_ID: &str = "oidc-exchange";
+static CLIENT_ID: &str = "730ae5f1-a728-4a5d-9a06-cf09b653cca6";
 
 #[tokio::main]
 async fn main() -> Result<(), anyhow::Error> {
