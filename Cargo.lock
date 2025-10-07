@@ -3143,7 +3143,7 @@ dependencies = [
 [[package]]
 name = "tracing-slog"
 version = "0.2.0-kv"
-source = "git+ssh://git@github.com/oxidecomputer/tracing-slog.git#71e0ca88fad448801b567d5f63ba7d7b01eca1f1"
+source = "git+https://github.com/oxidecomputer/tracing-slog#71e0ca88fad448801b567d5f63ba7d7b01eca1f1"
 dependencies = [
  "slog",
  "tracing-core",
