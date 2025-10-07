@@ -1,0 +1,30 @@
+name: Release Server
+
+on:
+  push:
+    tags:
+      - "**[0-9]+.[0-9]+.[0-9]+*"
+
+jobs:
+  release-linux:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Install Rust
+        uses: actions-rs/toolchain@16499b5e05bf2e26879000db0c1d13f7e13fa3af # v1
+        with:
+          toolchain: stable
+          targets: x86_64-unknown-linux-gnu
+
+      - name: Build Release Binary
+        run: |
+          cargo build --release --package oidc-exchange
+          mv target/release/oidc-exchange target/release/oidc-exchange-x86_64-unknown-linux-gnu
+
+      - uses: ncipollo/release-action@bcfe5470707e8832e12347755757cec0eb3c22af # v1
+        with:
+          allowUpdates: true
+          artifacts: "target/release/oidc-exchange-x86_64-unknown-linux-gnu"
