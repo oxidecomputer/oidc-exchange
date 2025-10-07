@@ -4,33 +4,11 @@ use std::{error::Error, net::SocketAddr};
 use tracing_slog::TracingSlogDrain;
 
 use crate::{context::Context, endpoints::exchange};
-// use v_api::{inject_endpoints, v_system_endpoints};
-
-// use crate::{
-//     context::CassetteContext,
-//     endpoints::{
-//         forms::{
-//             marketing::{
-//                 submission::{marketing_remote_preview, marketing_remote_preview_cors},
-//                 url::marketing_remote_preview_url,
-//             },
-//             tally::{
-//                 preview_request_submission::tally_remote_preview,
-//                 preview_request_url::tally_remote_preview_url,
-//             },
-//         },
-//         images::{download_image, image_meta},
-//         logs::{event_field, event_field_all, ingest, list_actors, list_events, list_requests},
-//     },
-//     permissions::CassettePermission,
-// };
 
 pub struct ServerConfig {
     pub context: Context,
     pub server_address: SocketAddr,
 }
-
-// v_system_endpoints!(CassetteContext, CassettePermission);
 
 pub fn server(
     config: ServerConfig,
