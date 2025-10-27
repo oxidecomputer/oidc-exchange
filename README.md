@@ -47,7 +47,7 @@ additional claims to narrow down which identity tokens are authorized.
 # the oxidecomputer/oidc-exchange repository on the main branch.
 [authorizations.authorization]
 issuer = "https://token.actions.githubusercontent.com"
-audience = "https://github.com/octo-org",
+audience = "https://github.com/octo-org"
 claims = { repository = "oxidecomputer/oidc-exchange", ref = "refs/head/main" }
 ```
 
