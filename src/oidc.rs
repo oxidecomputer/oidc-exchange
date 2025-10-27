@@ -11,7 +11,7 @@ use std::{fmt::Debug, str::FromStr};
 use thiserror::Error;
 use tracing::instrument;
 
-use crate::{providers::Claims, settings::TokenClaims};
+use crate::{authorizations::TokenClaims, providers::Claims};
 
 #[derive(Debug, Error)]
 pub enum OidcError {
@@ -156,4 +156,9 @@ fn key_algo_to_algo(key_algorithm: KeyAlgorithm) -> Result<Algorithm, OidcError>
         KeyAlgorithm::EdDSA => Algorithm::EdDSA,
         _ => Err(OidcError::UnsupportedAlgorithm(key_algorithm))?,
     })
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct IssuerClaim {
+    pub iss: String,
 }
