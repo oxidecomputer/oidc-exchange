@@ -3,52 +3,40 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use config::{Config, ConfigError, File};
-use secrecy::SecretString;
+use oxide::{Client as OxideSdk, ClientConfig};
+use secrecy::{ExposeSecret, SecretString};
 use serde::Deserialize;
+use std::error::Error as StdError;
 
-use crate::{oidc::OidcProvider, providers::Claims};
+use crate::{oidc::OidcProvider, token::TokenClientStore};
+
+#[derive(Debug, Clone, Deserialize, Hash, PartialEq, Eq)]
+pub struct Name(pub String);
 
 #[derive(Debug, Clone, Deserialize, Hash, PartialEq, Eq)]
 pub struct Host(pub String);
 
-#[derive(Debug, Clone, Deserialize, Hash, PartialEq, Eq)]
-pub struct User(pub String);
-
-#[derive(Debug, Deserialize, Hash, PartialEq, Eq)]
-pub struct TokenClaims {
-    pub audience: String,
-    pub claims: Claims,
-}
-
-#[derive(Debug, Deserialize, Hash, PartialEq, Eq)]
-pub struct TokenAuthorization {
-    pub token: TokenClaims,
-    pub host: Host,
-    pub user: User,
-    pub duration: u32,
+#[derive(Debug, Deserialize)]
+#[serde(tag = "service")]
+pub enum TokenStoreConfig {
+    Oxide(OxideTokenStoreConfig),
 }
 
 #[derive(Debug, Deserialize)]
-pub struct OidcProviderConfiguration {
-    pub provider: OidcProvider,
-    #[serde(default)]
-    pub token_authorizations: Vec<TokenAuthorization>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct TokenStoreEntry {
-    pub host: Host,
-    pub user: User,
-    pub token: SecretString,
+pub struct OxideTokenStoreConfig {
+    name: Name,
+    host: Host,
+    token: SecretString,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct Settings {
+    pub tokens_config: String,
     pub log_directory: Option<String>,
     pub port: Option<u16>,
-    pub providers: Vec<OidcProviderConfiguration>,
+    pub providers: Vec<OidcProvider>,
     #[serde(default)]
-    pub token_store: Vec<TokenStoreEntry>,
+    pub token_store: Vec<TokenStoreConfig>,
 }
 
 impl Settings {
@@ -61,5 +49,28 @@ impl Settings {
         }
 
         config.build()?.try_deserialize()
+    }
+}
+
+impl TokenStoreConfig {
+    pub fn name(&self) -> &Name {
+        match self {
+            TokenStoreConfig::Oxide(OxideTokenStoreConfig { name, .. }) => name,
+        }
+    }
+
+    pub fn add_to_store(
+        self,
+        store: &mut TokenClientStore,
+    ) -> Result<(), Box<dyn StdError + Send + Sync>> {
+        match self {
+            TokenStoreConfig::Oxide(OxideTokenStoreConfig { name, host, token }) => {
+                let config =
+                    ClientConfig::default().with_host_and_token(&host.0, token.expose_secret());
+                store.add_client(name, OxideSdk::new_authenticated_config(&config)?);
+            }
+        }
+
+        Ok(())
     }
 }

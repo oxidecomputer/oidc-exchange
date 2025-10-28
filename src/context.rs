@@ -2,18 +2,25 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use oxide::{Client as OxideSdk, ClientConfig, OxideAuthError};
-use secrecy::ExposeSecret;
-use std::collections::HashMap;
+use oxide::OxideAuthError;
+use std::{
+    collections::HashMap,
+    error::Error as StdError,
+    sync::{Arc, RwLock},
+};
 use thiserror::Error;
 
 use crate::{
+    authorizations::{Authorizations, TokenAuthorization},
     oidc::{OidcError, ResolvedOidcConfig},
-    settings::{Host, Settings, TokenAuthorization, TokenStoreEntry, User},
+    settings::Settings,
+    token::TokenClientStore,
 };
 
 #[derive(Debug, Error)]
 pub enum ContextBuildError {
+    #[error("Failed to construct client")]
+    ClientConstruction(Box<dyn StdError + Send + Sync>),
     #[error("Failed to create an Oxide SDK client")]
     FailedToCreateSdk(#[from] OxideAuthError),
     #[error("Encountered an error configuring OIDC providers")]
@@ -23,42 +30,49 @@ pub enum ContextBuildError {
 #[derive(Debug)]
 pub struct ResolvedOidcProvider {
     pub config: ResolvedOidcConfig,
-    pub token_authorizations: Vec<TokenAuthorization>,
 }
 
 #[derive(Debug)]
 pub struct Context {
-    pub providers: Vec<ResolvedOidcProvider>,
-    pub sdk_store: HashMap<(Host, User), OxideSdk>,
+    pub providers: HashMap<String, Arc<RwLock<ResolvedOidcProvider>>>,
+    pub authorizations: HashMap<String, Vec<TokenAuthorization>>,
+    pub clients: TokenClientStore,
 }
 
 impl Context {
-    pub async fn new(settings: Settings) -> Result<Self, ContextBuildError> {
+    pub async fn new(settings: Settings, auths: Authorizations) -> Result<Self, ContextBuildError> {
         let client = reqwest::Client::new();
 
-        let mut providers = vec![];
+        let mut providers = HashMap::new();
         for provider in settings.providers {
-            providers.push(ResolvedOidcProvider {
+            let resolved = ResolvedOidcProvider {
                 config: provider
-                    .provider
                     .fetch_config(&client)
                     .await?
                     .resolve(&client)
                     .await?,
-                token_authorizations: provider.token_authorizations,
-            });
+            };
+            let issuer = resolved.config.issuer.clone();
+            providers.insert(issuer, Arc::new(RwLock::new(resolved)));
         }
 
-        let mut sdk_store = HashMap::new();
-        for TokenStoreEntry { host, user, token } in settings.token_store {
-            let config =
-                ClientConfig::default().with_host_and_token(&host.0, token.expose_secret());
-            sdk_store.insert((host, user), OxideSdk::new_authenticated_config(&config)?);
+        let mut authorizations: HashMap<String, Vec<TokenAuthorization>> = HashMap::new();
+        for authorization in auths.authorizations {
+            let entry = authorizations.entry(authorization.authorization.issuer.clone());
+            entry.or_default().push(authorization);
+        }
+
+        let mut clients = TokenClientStore::new();
+        for store_config in settings.token_store {
+            store_config
+                .add_to_store(&mut clients)
+                .map_err(ContextBuildError::ClientConstruction)?;
         }
 
         Ok(Context {
             providers,
-            sdk_store,
+            authorizations,
+            clients,
         })
     }
 }

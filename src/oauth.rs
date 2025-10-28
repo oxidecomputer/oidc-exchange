@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use serde::Deserialize;
+use thiserror::Error;
 
 #[derive(Debug, Deserialize)]
 pub struct DeviceAuthorizationResponse {
@@ -13,4 +14,11 @@ pub struct DeviceAuthorizationResponse {
 #[derive(Debug, Deserialize)]
 pub struct DeviceAccessTokenGrant {
     pub access_token: String,
+}
+
+#[derive(Debug, Deserialize, Error)]
+#[error("Device access token acquisition failed with {error}")]
+pub struct DeviceAccessTokenError {
+    pub error: String,
+    pub error_description: String,
 }
