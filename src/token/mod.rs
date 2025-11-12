@@ -2,7 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use serde_json::Value;
 use std::{
     any::{Any, TypeId},
     collections::HashMap,
@@ -11,7 +10,7 @@ use std::{
     hash::{BuildHasherDefault, Hasher},
 };
 
-use crate::settings::Name;
+use crate::{endpoints::Token, settings::Name};
 
 pub mod oxide;
 
@@ -94,5 +93,5 @@ impl TokenClientStore {
 
 pub trait GenerateToken {
     async fn generate_token(&self, token_store: &TokenClientStore)
-    -> Result<Value, Box<dyn Error>>;
+    -> Result<Token, Box<dyn Error>>;
 }

@@ -5,6 +5,7 @@
 use serde::Deserialize;
 
 use crate::{
+    endpoints::Token,
     providers::Claims,
     settings::Name,
     token::{GenerateToken, oxide::OxideTokenStoreRequest},
@@ -40,7 +41,7 @@ impl GenerateToken for TokenStoreService {
     async fn generate_token(
         &self,
         token_store: &crate::token::TokenClientStore,
-    ) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+    ) -> Result<Token, Box<dyn std::error::Error>> {
         match self {
             Self::Oxide(store) => store.generate_token(token_store).await,
         }

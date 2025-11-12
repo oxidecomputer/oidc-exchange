@@ -12,7 +12,7 @@ use crate::{context::Context, oidc::IssuerClaim, token::GenerateToken};
 // An Oxide access token with a fixed expiration time.
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct Token {
-    token: String,
+    pub access_token: String,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -87,9 +87,7 @@ pub async fn exchange(
                 HttpError::for_internal_error("Failed to generate token".to_string())
             })?;
 
-        return Ok(HttpResponseOk(Token {
-            token: serde_json::to_string(&token).unwrap(),
-        }));
+        return Ok(HttpResponseOk(token));
     }
 
     Err(HttpError::for_bad_request(

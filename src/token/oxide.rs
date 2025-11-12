@@ -2,15 +2,14 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use chrono::Utc;
 use oxide::{ByteStream, ClientConsoleAuthExt};
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde::Deserialize;
 use std::error::Error as StdError;
 use tap::TapFallible;
 use thiserror::Error;
 
 use crate::{
+    endpoints::Token,
     oauth::{DeviceAccessTokenError, DeviceAccessTokenGrant, DeviceAuthorizationResponse},
     settings::Name,
     token::{GenerateToken, TokenClientStore},
@@ -39,22 +38,15 @@ pub struct OxideTokenStoreRequest {
     pub duration: u32,
 }
 
-#[derive(Serialize)]
-pub struct OxideToken {
-    pub access_token: String,
-    pub expires_at: u32,
-}
-
 impl GenerateToken for OxideTokenStoreRequest {
     async fn generate_token(
         &self,
         client_store: &TokenClientStore,
-    ) -> Result<Value, Box<dyn StdError>> {
+    ) -> Result<Token, Box<dyn StdError>> {
         let client = client_store
             .client::<oxide::Client>(&self.store)
             .ok_or(OxideError::MissingClient)?;
 
-        let expires_at = Utc::now().timestamp().max(0) as u32 + self.duration;
         let device_response = match client
             .device_auth_request()
             .body_map(|body| {
@@ -116,9 +108,8 @@ impl GenerateToken for OxideTokenStoreRequest {
             .into_inner();
         let access_token_response = parse_bytestream::<DeviceAccessTokenGrant>(data).await?;
 
-        Ok(serde_json::to_value(OxideToken {
+        Ok(Token {
             access_token: access_token_response.access_token,
-            expires_at,
-        })?)
+        })
     }
 }
