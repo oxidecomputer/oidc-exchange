@@ -4,22 +4,24 @@
 
 use serde::Deserialize;
 
+use crate::oidc::ClaimValue;
 use crate::token::github::GitHubTokenRequest;
-use crate::{providers::Claims, token::oxide::OxideTokenRequest};
+use crate::token::oxide::OxideTokenRequest;
+use std::collections::HashMap;
 
-#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 pub struct TokenClaims {
     pub issuer: String,
-    pub claims: Claims,
+    pub claims: HashMap<String, ClaimValue>,
 }
 
-#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 pub struct TokenAuthorization {
     pub authorization: TokenClaims,
     pub request: TokenStoreRequest,
 }
 
-#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
 #[serde(tag = "service", rename_all = "lowercase")]
 pub enum TokenStoreRequest {
     Oxide(OxideTokenRequest),

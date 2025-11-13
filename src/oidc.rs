@@ -7,11 +7,11 @@ use jsonwebtoken::{
     jwk::{JwkSet, KeyAlgorithm},
 };
 use serde::{Deserialize, Serialize};
-use std::{fmt::Debug, str::FromStr};
+use std::{collections::HashMap, fmt::Debug, str::FromStr};
 use thiserror::Error;
 use tracing::instrument;
 
-use crate::{authorizations::TokenClaims, providers::Claims, settings::Settings};
+use crate::{authorizations::TokenClaims, settings::Settings};
 
 #[derive(Debug, Error)]
 pub enum OidcError {
@@ -124,25 +124,41 @@ impl ResolvedOidcConfig {
         validation.set_audience(&[&settings.audience]);
         validation.set_issuer(&[&self.issuer]);
 
-        let token =
-            jsonwebtoken::decode::<Claims>(token, &decoding_key, &validation).map_err(|err| {
-                tracing::info!(?err, expected = ?settings.audience, "Audience does not match");
-                OidcError::InvalidToken(err)
-            })?;
+        let token: HashMap<String, ClaimValue> =
+            jsonwebtoken::decode(token, &decoding_key, &validation)
+                .map_err(|err| {
+                    tracing::info!(?err, expected = ?settings.audience, "Audience does not match");
+                    OidcError::InvalidToken(err)
+                })?
+                .claims;
 
-        tracing::info!(token = ?token.claims, authorization = ?expected_claims, "Testing token claims");
+        tracing::info!(token = ?token, authorization = ?expected_claims, "Testing token claims");
 
-        if expected_claims.claims.validate(&token.claims) {
-            Ok(())
-        } else {
-            tracing::info!("Claims did not match validator");
-            Err(OidcError::ValidationFailed)
+        for (claim, expected_value) in &expected_claims.claims {
+            let found = token.get(claim);
+            if found != Some(expected_value) {
+                tracing::info!("expected claim {claim} to be {expected_value:?}, found {found:?}");
+                return Err(OidcError::ValidationFailed);
+            }
         }
+        Ok(())
     }
 }
 
-pub trait ValidationClaims {
-    fn validate(&self, token_claims: &Claims) -> bool;
+#[derive(serde::Deserialize, Clone, PartialEq, Eq)]
+#[serde(untagged)]
+pub enum ClaimValue {
+    Number(i64),
+    String(String),
+}
+
+impl std::fmt::Debug for ClaimValue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Number(val) => std::fmt::Debug::fmt(val, f),
+            Self::String(val) => std::fmt::Debug::fmt(val, f),
+        }
+    }
 }
 
 fn key_algo_to_algo(key_algorithm: KeyAlgorithm) -> Result<Algorithm, OidcError> {

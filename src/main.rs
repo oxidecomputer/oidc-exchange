@@ -19,7 +19,6 @@ mod context;
 mod endpoints;
 mod oauth;
 mod oidc;
-mod providers;
 mod server;
 mod settings;
 mod token;
