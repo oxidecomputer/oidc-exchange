@@ -7,7 +7,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tap::TapFallible;
 
-use crate::{context::Context, oidc::IssuerClaim, token::GenerateToken};
+use crate::authorizations::TokenStoreService;
+use crate::{context::Context, oidc::IssuerClaim};
 
 // An Oxide access token with a fixed expiration time.
 #[derive(Debug, Serialize, JsonSchema)]
@@ -77,15 +78,14 @@ pub async fn exchange(
             continue;
         }
 
-        let token = authz
-            .request
-            .service
-            .generate_token(&ctx.clients)
-            .await
-            .map_err(|err| {
-                tracing::error!(?err, "Failed to generate token");
-                HttpError::for_internal_error("Failed to generate token".to_string())
-            })?;
+        let token = match &authz.request {
+            TokenStoreService::Oxide(oxide) => {
+                ctx.oxide_tokens.get(oxide).await.map_err(|err| {
+                    tracing::error!(?err, "Failed to generate token");
+                    HttpError::for_internal_error("Failed to generate token".to_string())
+                })?
+            }
+        };
 
         return Ok(HttpResponseOk(token));
     }

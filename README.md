@@ -22,17 +22,16 @@ Adding a provider does not grant any access by default. It only enables the serv
 discover their OIDC settings, and access the key sets that they provide for validating
 identity tokens.
 
-To be able to issue access tokens, each service needs to have one (or more) token token
-stores configured. These internal clients that will be connecting to external services
-and generating access tokens for them. As an example, configuring a token store for The
-Oxide rack looks like:
+To be able to issue access tokens, service-specific configuration needs to be present in
+the settings file:
 
-```toml
-[[token_store]]
-name = "oxide-rack1"
-host = "https://silo.sys.rack1.oxide.computer"
-token = "secret_token"
-```
+* For Oxide tokens, a map of silo URLs to access tokens needs to be provided:
+
+  ```toml
+  [oxide_silos]
+  "https://oxide.sys.r3.oxide-preview.com" = "oxide-token-helloworld"
+  "https://corp-prod.sys.r3.oxide-preview.com" = "oxide-token-supersecure"
+  ```
 
 To grant authorization for an identity token to be exchanged for an access token, an
 authorization mapping of the token claims to token request settings must be defined.
@@ -57,13 +56,10 @@ service is the Oxide rack, and its settings are quite simple.
 
 ```toml
 [authorizations.request]
-# The name of the token store to use for the request. (Defined above)
-store = "oxide-rack1"
-# Indicator of the service this request is for. Currently only "oxide" is supported.
+# Indicator of the service this request is for, in this case an Oxide rack (required).
 service = "oxide"
-
-# Oxide specific settings for the request.
-
-# The duration that the access token should be valid for.
+# URL of the silo to create a token for, must be present in [oxide_silos] (required).
+silo = "https://oxide.sys.r3.oxide-preview.com"
+# The duration that the access token should be valid for (required).
 duration = 3600
 ```

@@ -2,7 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use oxide::OxideAuthError;
 use std::{
     collections::HashMap,
     error::Error as StdError,
@@ -14,15 +13,15 @@ use crate::{
     authorizations::{Authorizations, TokenAuthorization},
     oidc::{OidcError, ResolvedOidcConfig},
     settings::Settings,
-    token::TokenClientStore,
+    token::oxide::{OxideError, OxideTokens},
 };
 
 #[derive(Debug, Error)]
 pub enum ContextBuildError {
     #[error("Failed to construct client")]
     ClientConstruction(Box<dyn StdError + Send + Sync>),
-    #[error("Failed to create an Oxide SDK client")]
-    FailedToCreateSdk(#[from] OxideAuthError),
+    #[error("Failed to initialize the Oxide token store")]
+    OxideTokens(#[from] OxideError),
     #[error("Encountered an error configuring OIDC providers")]
     Oidc(#[from] OidcError),
 }
@@ -36,7 +35,7 @@ pub struct ResolvedOidcProvider {
 pub struct Context {
     pub providers: HashMap<String, Arc<RwLock<ResolvedOidcProvider>>>,
     pub authorizations: HashMap<String, Vec<TokenAuthorization>>,
-    pub clients: TokenClientStore,
+    pub oxide_tokens: OxideTokens,
 }
 
 impl Context {
@@ -44,7 +43,7 @@ impl Context {
         let client = reqwest::Client::new();
 
         let mut providers = HashMap::new();
-        for provider in settings.providers {
+        for provider in &settings.providers {
             let resolved = ResolvedOidcProvider {
                 config: provider
                     .fetch_config(&client)
@@ -62,17 +61,10 @@ impl Context {
             entry.or_default().push(authorization);
         }
 
-        let mut clients = TokenClientStore::new();
-        for store_config in settings.token_store {
-            store_config
-                .add_to_store(&mut clients)
-                .map_err(ContextBuildError::ClientConstruction)?;
-        }
-
         Ok(Context {
             providers,
             authorizations,
-            clients,
+            oxide_tokens: OxideTokens::new(&settings)?,
         })
     }
 }

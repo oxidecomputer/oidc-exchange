@@ -4,12 +4,7 @@
 
 use serde::Deserialize;
 
-use crate::{
-    endpoints::Token,
-    providers::Claims,
-    settings::Name,
-    token::{GenerateToken, oxide::OxideTokenStoreRequest},
-};
+use crate::{providers::Claims, token::oxide::OxideTokenRequest};
 
 #[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq)]
 pub struct TokenClaims {
@@ -21,31 +16,13 @@ pub struct TokenClaims {
 #[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq)]
 pub struct TokenAuthorization {
     pub authorization: TokenClaims,
-    pub request: TokenStoreRequest,
-}
-
-#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq)]
-pub struct TokenStoreRequest {
-    pub name: Name,
-    #[serde(flatten)]
-    pub service: TokenStoreService,
+    pub request: TokenStoreService,
 }
 
 #[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq)]
 #[serde(tag = "service", rename_all = "lowercase")]
 pub enum TokenStoreService {
-    Oxide(OxideTokenStoreRequest),
-}
-
-impl GenerateToken for TokenStoreService {
-    async fn generate_token(
-        &self,
-        token_store: &crate::token::TokenClientStore,
-    ) -> Result<Token, Box<dyn std::error::Error>> {
-        match self {
-            Self::Oxide(store) => store.generate_token(token_store).await,
-        }
-    }
+    Oxide(OxideTokenRequest),
 }
 
 #[derive(Debug, Deserialize)]
