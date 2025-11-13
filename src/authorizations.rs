@@ -16,12 +16,12 @@ pub struct TokenClaims {
 #[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq)]
 pub struct TokenAuthorization {
     pub authorization: TokenClaims,
-    pub request: TokenStoreService,
+    pub request: TokenStoreRequest,
 }
 
 #[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq)]
 #[serde(tag = "service", rename_all = "lowercase")]
-pub enum TokenStoreService {
+pub enum TokenStoreRequest {
     Oxide(OxideTokenRequest),
     GitHub(GitHubTokenRequest),
 }
