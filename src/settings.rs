@@ -12,6 +12,7 @@ use crate::oidc::OidcProvider;
 
 #[derive(Debug, Deserialize)]
 pub struct Settings {
+    pub audience: String,
     pub tokens_config: String,
     pub log_directory: Option<String>,
     pub port: Option<u16>,

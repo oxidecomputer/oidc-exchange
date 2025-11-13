@@ -33,6 +33,7 @@ pub struct ResolvedOidcProvider {
 
 #[derive(Debug)]
 pub struct Context {
+    pub settings: Settings,
     pub providers: HashMap<String, Arc<RwLock<ResolvedOidcProvider>>>,
     pub authorizations: HashMap<String, Vec<TokenAuthorization>>,
     pub oxide_tokens: OxideTokens,
@@ -65,6 +66,7 @@ impl Context {
             providers,
             authorizations,
             oxide_tokens: OxideTokens::new(&settings)?,
+            settings,
         })
     }
 }

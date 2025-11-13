@@ -9,7 +9,6 @@ use crate::{providers::Claims, token::oxide::OxideTokenRequest};
 #[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq)]
 pub struct TokenClaims {
     pub issuer: String,
-    pub audience: String,
     pub claims: Claims,
 }
 

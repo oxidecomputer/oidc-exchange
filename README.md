@@ -37,16 +37,15 @@ To grant authorization for an identity token to be exchanged for an access token
 authorization mapping of the token claims to token request settings must be defined.
 This is the glue between the provider and the token store. To connect these two, a
 token authorization defines specific claims that must be present in the identity token
-in order to be authorized to exchange it for an access token. The issuer and audience
-claims are required for all authorizations, but it is strongly recommended to define
-additional claims to narrow down which identity tokens are authorized.
+in order to be authorized to exchange it for an access token. The issuer claim is
+required for all authorizations, but it is strongly recommended to define additional
+claims to narrow down which identity tokens are authorized.
 
 ```toml
 # Sample configuration to authorize identity tokens from GitHub Actions running in
 # the oxidecomputer/oidc-exchange repository on the main branch.
 [authorizations.authorization]
 issuer = "https://token.actions.githubusercontent.com"
-audience = "https://github.com/octo-org"
 claims = { repository = "oxidecomputer/oidc-exchange", ref = "refs/head/main" }
 ```
 

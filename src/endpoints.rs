@@ -69,7 +69,7 @@ pub async fn exchange(
             .read()
             .unwrap()
             .config
-            .validate(&token, &authz.authorization)
+            .validate(&ctx.settings, &token, &authz.authorization)
             .tap_err(|err| {
                 tracing::info!(?err, "Failed to validate token");
             })

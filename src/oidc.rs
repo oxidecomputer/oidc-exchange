@@ -11,7 +11,7 @@ use std::{fmt::Debug, str::FromStr};
 use thiserror::Error;
 use tracing::instrument;
 
-use crate::{authorizations::TokenClaims, providers::Claims};
+use crate::{authorizations::TokenClaims, providers::Claims, settings::Settings};
 
 #[derive(Debug, Error)]
 pub enum OidcError {
@@ -102,7 +102,12 @@ pub struct ResolvedOidcConfig {
 
 impl ResolvedOidcConfig {
     #[instrument(skip(self, token))]
-    pub fn validate(&self, token: &str, expected_claims: &TokenClaims) -> Result<(), OidcError> {
+    pub fn validate(
+        &self,
+        settings: &Settings,
+        token: &str,
+        expected_claims: &TokenClaims,
+    ) -> Result<(), OidcError> {
         let header = jsonwebtoken::decode_header(token).map_err(OidcError::InvalidHeader)?;
         let kid = header.kid.ok_or(OidcError::MissingKid)?;
         let jwk = self
@@ -116,12 +121,12 @@ impl ResolvedOidcConfig {
                 .key_algorithm
                 .ok_or(OidcError::MissingKeyAlgorithm)?,
         )?);
-        validation.set_audience(&[&expected_claims.audience]);
+        validation.set_audience(&[&settings.audience]);
         validation.set_issuer(&[&self.issuer]);
 
         let token =
             jsonwebtoken::decode::<Claims>(token, &decoding_key, &validation).map_err(|err| {
-                tracing::info!(?err, expected = ?expected_claims.audience, "Audience does not match");
+                tracing::info!(?err, expected = ?settings.audience, "Audience does not match");
                 OidcError::InvalidToken(err)
             })?;
 
