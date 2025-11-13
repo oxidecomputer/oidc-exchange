@@ -15,7 +15,7 @@ defined via urls to the provider's OpenID configuration url.
 ```toml
 # Adding GitHub as an OIDC provider
 [[providers]]
-provider = { url = "https://token.actions.githubusercontent.com/.well-known/openid-configuration" }
+url = "https://token.actions.githubusercontent.com/.well-known/openid-configuration"
 ```
 
 Adding a provider does not grant any access by default. It only enables the server to
