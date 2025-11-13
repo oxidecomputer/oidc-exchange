@@ -2,20 +2,19 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use chrono::Utc;
-use oxide::{ByteStream, ClientConsoleAuthExt};
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use std::error::Error as StdError;
+use oxide::{ByteStream, Client, ClientConfig, ClientConsoleAuthExt, OxideAuthError};
+use serde::Deserialize;
+use std::{collections::HashMap, error::Error as StdError};
 use tap::TapFallible;
 use thiserror::Error;
 
 use crate::{
+    endpoints::Token,
     oauth::{DeviceAccessTokenError, DeviceAccessTokenGrant, DeviceAuthorizationResponse},
-    settings::Name,
-    token::{GenerateToken, TokenClientStore},
+    settings::Settings,
     util::{ByteStreamError, parse_bytestream},
 };
+use secrecy::ExposeSecret as _;
 
 static CLIENT_ID: &str = "730ae5f1-a728-4a5d-9a06-cf09b653cca6";
 
@@ -25,8 +24,10 @@ pub enum OxideError {
     ByteStream(#[from] ByteStreamError),
     #[error("Failed to issue device access token request")]
     DeviceAuthRequest(#[from] DeviceAccessTokenError),
-    #[error("No client for the requested service and name exists")]
-    MissingClient,
+    #[error("The silo {0} is not configured in this instance of oidc-exchange")]
+    SiloNotConfigured(String),
+    #[error("Failed to authenticate with silo {0}")]
+    AuthFailed(String, #[source] OxideAuthError),
     #[error("Remote service error")]
     Oxide(#[from] oxide::Error<oxide::types::Error>),
     #[error("Remote service error")]
@@ -34,35 +35,44 @@ pub enum OxideError {
 }
 
 #[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq)]
-pub struct OxideTokenStoreRequest {
-    pub store: Name,
+pub struct OxideTokenRequest {
+    pub silo: String,
     pub duration: u32,
 }
 
-#[derive(Serialize)]
-pub struct OxideToken {
-    pub access_token: String,
-    pub expires_at: u32,
+#[derive(Debug)]
+pub struct OxideTokens {
+    clients: HashMap<String, Client>,
 }
 
-impl GenerateToken for OxideTokenStoreRequest {
-    async fn generate_token(
-        &self,
-        client_store: &TokenClientStore,
-    ) -> Result<Value, Box<dyn StdError>> {
-        let client = client_store
-            .client::<oxide::Client>(&self.store)
-            .ok_or(OxideError::MissingClient)?;
+impl OxideTokens {
+    pub fn new(settings: &Settings) -> Result<Self, OxideError> {
+        let mut clients = HashMap::new();
+        for (silo, token) in &settings.oxide_silos {
+            let config = ClientConfig::default().with_host_and_token(silo, token.expose_secret());
+            clients.insert(
+                silo.clone(),
+                Client::new_authenticated_config(&config)
+                    .map_err(|e| OxideError::AuthFailed(silo.clone(), e))?,
+            );
+        }
+        Ok(Self { clients })
+    }
 
-        let expires_at = Utc::now().timestamp().max(0) as u32 + self.duration;
+    pub async fn get(&self, request: &OxideTokenRequest) -> Result<Token, Box<dyn StdError>> {
+        let client = self
+            .clients
+            .get(&request.silo)
+            .ok_or_else(|| OxideError::SiloNotConfigured(request.silo.clone()))?;
+
         let device_response = match client
             .device_auth_request()
             .body_map(|body| {
                 body.client_id(CLIENT_ID)
-                    .ttl_seconds(if self.duration == 0 {
+                    .ttl_seconds(if request.duration == 0 {
                         None
                     } else {
-                        Some(self.duration.try_into().unwrap())
+                        Some(request.duration.try_into().unwrap())
                     })
             })
             .send()
@@ -116,9 +126,8 @@ impl GenerateToken for OxideTokenStoreRequest {
             .into_inner();
         let access_token_response = parse_bytestream::<DeviceAccessTokenGrant>(data).await?;
 
-        Ok(serde_json::to_value(OxideToken {
+        Ok(Token {
             access_token: access_token_response.access_token,
-            expires_at,
-        })?)
+        })
     }
 }

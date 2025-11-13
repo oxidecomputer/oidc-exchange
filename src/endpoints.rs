@@ -7,12 +7,13 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use tap::TapFallible;
 
-use crate::{context::Context, oidc::IssuerClaim, token::GenerateToken};
+use crate::authorizations::TokenStoreRequest;
+use crate::{context::Context, oidc::IssuerClaim};
 
 // An Oxide access token with a fixed expiration time.
 #[derive(Debug, Serialize, JsonSchema)]
 pub struct Token {
-    token: String,
+    pub access_token: String,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -68,7 +69,7 @@ pub async fn exchange(
             .read()
             .unwrap()
             .config
-            .validate(&token, &authz.authorization)
+            .validate(&ctx.settings, &token, &authz.authorization)
             .tap_err(|err| {
                 tracing::info!(?err, "Failed to validate token");
             })
@@ -77,19 +78,26 @@ pub async fn exchange(
             continue;
         }
 
-        let token = authz
-            .request
-            .service
-            .generate_token(&ctx.clients)
-            .await
-            .map_err(|err| {
-                tracing::error!(?err, "Failed to generate token");
-                HttpError::for_internal_error("Failed to generate token".to_string())
-            })?;
+        let token = match &authz.request {
+            TokenStoreRequest::Oxide(oxide) => {
+                ctx.oxide_tokens.get(oxide).await.map_err(|err| {
+                    tracing::error!(?err, "Failed to generate token");
+                    HttpError::for_internal_error("Failed to generate token".to_string())
+                })?
+            }
+            TokenStoreRequest::GitHub(github) => {
+                ctx.github_tokens.get(github).await.map_err(|err| {
+                    tracing::error!(?err, "Failed to generate token");
+                    if err.safe_to_expose() {
+                        HttpError::for_bad_request(None, format!("Failed to generate token: {err}"))
+                    } else {
+                        HttpError::for_internal_error("Failed to generate token".to_string())
+                    }
+                })?
+            }
+        };
 
-        return Ok(HttpResponseOk(Token {
-            token: serde_json::to_string(&token).unwrap(),
-        }));
+        return Ok(HttpResponseOk(token));
     }
 
     Err(HttpError::for_bad_request(
