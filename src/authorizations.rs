@@ -4,6 +4,7 @@
 
 use serde::Deserialize;
 
+use crate::token::github::GitHubTokenRequest;
 use crate::{providers::Claims, token::oxide::OxideTokenRequest};
 
 #[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq)]
@@ -22,6 +23,7 @@ pub struct TokenAuthorization {
 #[serde(tag = "service", rename_all = "lowercase")]
 pub enum TokenStoreService {
     Oxide(OxideTokenRequest),
+    GitHub(GitHubTokenRequest),
 }
 
 #[derive(Debug, Deserialize)]

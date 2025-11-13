@@ -3,6 +3,7 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use config::{Config, ConfigError, File};
 use secrecy::SecretString;
@@ -19,6 +20,8 @@ pub struct Settings {
     pub providers: Vec<OidcProvider>,
     #[serde(default)]
     pub oxide_silos: HashMap<String, SecretString>,
+    #[serde(default)]
+    pub github: Option<SettingsGitHubApp>,
 }
 
 impl Settings {
@@ -32,4 +35,10 @@ impl Settings {
 
         config.build()?.try_deserialize()
     }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SettingsGitHubApp {
+    pub client_id: String,
+    pub private_key_path: PathBuf,
 }

@@ -85,6 +85,16 @@ pub async fn exchange(
                     HttpError::for_internal_error("Failed to generate token".to_string())
                 })?
             }
+            TokenStoreService::GitHub(github) => {
+                ctx.github_tokens.get(github).await.map_err(|err| {
+                    tracing::error!(?err, "Failed to generate token");
+                    if err.safe_to_expose() {
+                        HttpError::for_bad_request(None, format!("Failed to generate token: {err}"))
+                    } else {
+                        HttpError::for_internal_error("Failed to generate token".to_string())
+                    }
+                })?
+            }
         };
 
         return Ok(HttpResponseOk(token));

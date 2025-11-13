@@ -13,7 +13,10 @@ use crate::{
     authorizations::{Authorizations, TokenAuthorization},
     oidc::{OidcError, ResolvedOidcConfig},
     settings::Settings,
-    token::oxide::{OxideError, OxideTokens},
+    token::{
+        github::{GitHubTokenError, GitHubTokens},
+        oxide::{OxideError, OxideTokens},
+    },
 };
 
 #[derive(Debug, Error)]
@@ -22,6 +25,8 @@ pub enum ContextBuildError {
     ClientConstruction(Box<dyn StdError + Send + Sync>),
     #[error("Failed to initialize the Oxide token store")]
     OxideTokens(#[from] OxideError),
+    #[error("Failed to initialize the GitHub token store")]
+    GitHubTokens(#[from] GitHubTokenError),
     #[error("Encountered an error configuring OIDC providers")]
     Oidc(#[from] OidcError),
 }
@@ -37,6 +42,7 @@ pub struct Context {
     pub providers: HashMap<String, Arc<RwLock<ResolvedOidcProvider>>>,
     pub authorizations: HashMap<String, Vec<TokenAuthorization>>,
     pub oxide_tokens: OxideTokens,
+    pub github_tokens: GitHubTokens,
 }
 
 impl Context {
@@ -66,6 +72,7 @@ impl Context {
             providers,
             authorizations,
             oxide_tokens: OxideTokens::new(&settings)?,
+            github_tokens: GitHubTokens::new(&settings)?,
             settings,
         })
     }

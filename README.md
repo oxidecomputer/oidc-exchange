@@ -33,6 +33,16 @@ the settings file:
   "https://corp-prod.sys.r3.oxide-preview.com" = "oxide-token-supersecure"
   ```
 
+* For GitHub tokens, a GitHub App needs to be created with all the permissions
+  an user might want, and must be installed on all organizations the user could
+  access. Then, the following configuration needs to be added:
+
+  ```toml
+  [github]
+  client_id = "Iv2AAAAAAAAAAAAAAAAA"
+  private_key_path = "/path/to/private-key.pem"
+  ```
+
 To grant authorization for an identity token to be exchanged for an access token, an
 authorization mapping of the token claims to token request settings must be defined.
 This is the glue between the provider and the token store. To connect these two, a
@@ -50,15 +60,28 @@ claims = { repository = "oxidecomputer/oidc-exchange", ref = "refs/head/main" }
 ```
 
 With the mapping in place the final configuration required is the token settings for the
-exchange service. These will be different per service. Currently the only supported
-service is the Oxide rack, and its settings are quite simple.
+exchange service. These will be different per service:
 
-```toml
-[authorizations.request]
-# Indicator of the service this request is for, in this case an Oxide rack (required).
-service = "oxide"
-# URL of the silo to create a token for, must be present in [oxide_silos] (required).
-silo = "https://oxide.sys.r3.oxide-preview.com"
-# The duration that the access token should be valid for (required).
-duration = 3600
-```
+* Request a token with access to the Oxide rack:
+
+  ```toml
+  [authorizations.request]
+  # Indicator of the service this request is for, in this case an Oxide rack (required).
+  service = "oxide"
+  # URL of the silo to create a token for, must be present in [oxide_silos] (required).
+  silo = "https://oxide.sys.r3.oxide-preview.com"
+  # The duration that the access token should be valid for (required).
+  duration = 3600
+  ```
+
+* Request a GitHub token with a set of permissions on a set of repositories:
+
+  ```toml
+  [authorizations.request]
+  # Indicator of the service this request is for, in this case GitHub (required).
+  service = "github"
+  # List of repositories to request access for (required).
+  repositories = ["oxidecomputer/omicron", "oxidecomputer/hubris"]
+  # List of permissions to request, in the `permission:level` format (required).
+  permissions = ["contents:read", "pull_requests:write"]
+  ```
