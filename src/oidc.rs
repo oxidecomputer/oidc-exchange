@@ -6,12 +6,13 @@ use jsonwebtoken::{
     Algorithm, DecodingKey, Validation,
     jwk::{JwkSet, KeyAlgorithm},
 };
+use oso::{PolarValue, ToPolar};
 use serde::{Deserialize, Serialize};
 use std::{collections::HashMap, fmt::Debug, str::FromStr};
 use thiserror::Error;
 use tracing::instrument;
 
-use crate::{authorizations::TokenClaims, settings::Settings};
+use crate::settings::Settings;
 
 #[derive(Debug, Error)]
 pub enum OidcError {
@@ -102,12 +103,7 @@ pub struct ResolvedOidcConfig {
 
 impl ResolvedOidcConfig {
     #[instrument(skip(self, token))]
-    pub fn validate(
-        &self,
-        settings: &Settings,
-        token: &str,
-        expected_claims: &TokenClaims,
-    ) -> Result<(), OidcError> {
+    pub fn validate(&self, settings: &Settings, token: &str) -> Result<Claims, OidcError> {
         let header = jsonwebtoken::decode_header(token).map_err(OidcError::InvalidHeader)?;
         let kid = header.kid.ok_or(OidcError::MissingKid)?;
         let jwk = self
@@ -124,30 +120,36 @@ impl ResolvedOidcConfig {
         validation.set_audience(&[&settings.audience]);
         validation.set_issuer(&[&self.issuer]);
 
-        let token: HashMap<String, ClaimValue> =
-            jsonwebtoken::decode(token, &decoding_key, &validation)
+        Ok(Claims {
+            claims: jsonwebtoken::decode(token, &decoding_key, &validation)
                 .map_err(|err| {
                     tracing::info!(?err, expected = ?settings.audience, "Audience does not match");
                     OidcError::InvalidToken(err)
                 })?
-                .claims;
-
-        tracing::info!(token = ?token, authorization = ?expected_claims, "Testing token claims");
-
-        for (claim, expected_value) in &expected_claims.claims {
-            let found = token.get(claim);
-            if found != Some(expected_value) {
-                tracing::info!("expected claim {claim} to be {expected_value:?}, found {found:?}");
-                return Err(OidcError::ValidationFailed);
-            }
-        }
-        Ok(())
+                .claims,
+        })
     }
 }
 
-#[derive(serde::Deserialize, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
+pub struct Claims {
+    claims: HashMap<String, ClaimValue>,
+}
+
+impl ToPolar for Claims {
+    fn to_polar(self) -> PolarValue {
+        PolarValue::Map(
+            self.claims
+                .into_iter()
+                .map(|(k, v)| (k, v.to_polar()))
+                .collect(),
+        )
+    }
+}
+
+#[derive(serde::Deserialize, Clone)]
 #[serde(untagged)]
-pub enum ClaimValue {
+enum ClaimValue {
     Number(i64),
     String(String),
 }
@@ -157,6 +159,15 @@ impl std::fmt::Debug for ClaimValue {
         match self {
             Self::Number(val) => std::fmt::Debug::fmt(val, f),
             Self::String(val) => std::fmt::Debug::fmt(val, f),
+        }
+    }
+}
+
+impl ToPolar for ClaimValue {
+    fn to_polar(self) -> PolarValue {
+        match self {
+            ClaimValue::Number(number) => PolarValue::Integer(number),
+            ClaimValue::String(string) => PolarValue::String(string),
         }
     }
 }

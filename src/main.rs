@@ -2,7 +2,6 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-use config::{Config, File};
 use std::net::{SocketAddr, SocketAddrV4};
 use tap::TapFallible;
 use tracing_appender::non_blocking::NonBlocking;
@@ -14,11 +13,11 @@ use crate::{
     settings::Settings,
 };
 
-mod authorizations;
 mod context;
 mod endpoints;
 mod oauth;
 mod oidc;
+mod policy;
 mod server;
 mod settings;
 mod token;
@@ -46,16 +45,11 @@ async fn main() -> Result<(), anyhow::Error> {
         .json()
         .init();
 
-    let authorizations = Config::builder()
-        .add_source(File::with_name(&settings.tokens_config))
-        .build()?
-        .try_deserialize()?;
-
     let address = SocketAddr::V4(SocketAddrV4::new(
         "0.0.0.0".parse()?,
         settings.port.unwrap_or(8080),
     ));
-    let context = Context::new(settings, authorizations).await?;
+    let context = Context::new(settings).await?;
 
     tracing::info!("Constructed context");
 
