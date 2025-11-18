@@ -30,7 +30,7 @@ will be returned, containing the requested access token.
 
 To request GitHub tokens, the JSON request body must containg the fields:
 
-* `jwt`: JWT token used for authorizing the request.
+* `caller_identity`: JWT token used for authorizing the request.
 * `service`: must be `github`.
 * `repositories`: list of repositories to request access to. They must all
   belong to the same organization or user. Issue separate exchange calls if you
@@ -64,7 +64,7 @@ if the GitHub App cannot generate the requested token.
 To request tokens to access an Oxide silo, the JSON request must contain the
 fields:
 
-* `jwt`: JWT token used for authorizing the request.
+* `caller_identity`: JWT token used for authorizing the request.
 * `service`: must be `oxide`.
 * `silo`: URL of the silothe token is requested for.
 * `duration` number of seconds the token should be valid for.

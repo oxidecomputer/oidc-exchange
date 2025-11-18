@@ -18,7 +18,7 @@ pub struct Token {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ExchangeBody {
-    jwt: String,
+    caller_identity: String,
     #[serde(flatten)]
     request: TokenRequest,
 }
@@ -42,7 +42,7 @@ pub async fn exchange(
     let ctx = rqctx.context();
     let body = body.into_inner();
 
-    let issuer = jsonwebtoken::dangerous::insecure_decode::<IssuerClaim>(&body.jwt)
+    let issuer = jsonwebtoken::dangerous::insecure_decode::<IssuerClaim>(&body.caller_identity)
         .map_err(|err| {
             tracing::info!(?err, "Failed to decode token");
             HttpError::for_bad_request(None, "Invalid token".to_string())
@@ -64,7 +64,7 @@ pub async fn exchange(
         .read()
         .unwrap()
         .config
-        .validate(&ctx.settings, &body.jwt)
+        .validate(&ctx.settings, &body.caller_identity)
         .map_err(|err| {
             tracing::info!(?err, "Failed to validate token");
             HttpError::for_bad_request(None, "Token validation failed".to_string())
