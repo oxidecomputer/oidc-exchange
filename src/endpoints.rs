@@ -5,9 +5,9 @@
 use dropshot::{HttpError, HttpResponseOk, RequestContext, TypedBody, endpoint};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use tap::TapFallible;
 
-use crate::authorizations::TokenStoreRequest;
+use crate::token::github::GitHubTokenRequest;
+use crate::token::oxide::OxideTokenRequest;
 use crate::{context::Context, oidc::IssuerClaim};
 
 // An Oxide access token with a fixed expiration time.
@@ -18,7 +18,16 @@ pub struct Token {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct ExchangeBody {
-    token: String,
+    caller_identity: String,
+    #[serde(flatten)]
+    request: TokenRequest,
+}
+
+#[derive(Clone, Debug, Deserialize, JsonSchema, PartialEq, Eq)]
+#[serde(tag = "service", rename_all = "lowercase")]
+pub enum TokenRequest {
+    Oxide(OxideTokenRequest),
+    GitHub(GitHubTokenRequest),
 }
 
 /// Exchange an OIDC provider identity token for an Oxide access token.
@@ -31,9 +40,9 @@ pub async fn exchange(
     body: TypedBody<ExchangeBody>,
 ) -> Result<HttpResponseOk<Token>, HttpError> {
     let ctx = rqctx.context();
-    let token = body.into_inner().token;
+    let body = body.into_inner();
 
-    let issuer = jsonwebtoken::dangerous::insecure_decode::<IssuerClaim>(&token)
+    let issuer = jsonwebtoken::dangerous::insecure_decode::<IssuerClaim>(&body.caller_identity)
         .map_err(|err| {
             tracing::info!(?err, "Failed to decode token");
             HttpError::for_bad_request(None, "Invalid token".to_string())
@@ -50,58 +59,36 @@ pub async fn exchange(
         })?
         .clone();
 
-    let authorizations = ctx
-        .authorizations
-        .get(&issuer)
-        .iter()
-        .map(|matches| matches.iter())
-        .flatten()
-        .cloned()
-        .collect::<Vec<_>>();
-    for authz in authorizations {
-        tracing::info!(
-            issuer = provider.read().unwrap().config.issuer,
-            "Testing if token matches authorization"
-        );
+    // Continue to the next authorization if the token does not match the required constraints
+    let claims = provider
+        .read()
+        .unwrap()
+        .config
+        .validate(&ctx.settings, &body.caller_identity)
+        .map_err(|err| {
+            tracing::info!(?err, "Failed to validate token");
+            HttpError::for_bad_request(None, "Token validation failed".to_string())
+        })?;
 
-        // Continue to the next authorization if the token does not match the required constraints
-        if provider
-            .read()
-            .unwrap()
-            .config
-            .validate(&ctx.settings, &token, &authz.authorization)
-            .tap_err(|err| {
-                tracing::info!(?err, "Failed to validate token");
-            })
-            .is_err()
-        {
-            continue;
-        }
+    ctx.policy
+        .ensure_allowed(&claims, &body.request)
+        .map_err(|err| {
+            tracing::info!(?err, "Failed to match the token against the policy");
+            HttpError::for_bad_request(None, format!("Token doesn't match the policy: {err}"))
+        })?;
 
-        let token = match &authz.request {
-            TokenStoreRequest::Oxide(oxide) => {
-                ctx.oxide_tokens.get(oxide).await.map_err(|err| {
-                    tracing::error!(?err, "Failed to generate token");
-                    HttpError::for_internal_error("Failed to generate token".to_string())
-                })?
+    Ok(HttpResponseOk(match &body.request {
+        TokenRequest::Oxide(oxide) => ctx.oxide_tokens.get(oxide).await.map_err(|err| {
+            tracing::error!(?err, "Failed to generate token");
+            HttpError::for_internal_error("Failed to generate token".to_string())
+        })?,
+        TokenRequest::GitHub(github) => ctx.github_tokens.get(github).await.map_err(|err| {
+            tracing::error!(?err, "Failed to generate token");
+            if err.safe_to_expose() {
+                HttpError::for_bad_request(None, format!("Failed to generate token: {err}"))
+            } else {
+                HttpError::for_internal_error("Failed to generate token".to_string())
             }
-            TokenStoreRequest::GitHub(github) => {
-                ctx.github_tokens.get(github).await.map_err(|err| {
-                    tracing::error!(?err, "Failed to generate token");
-                    if err.safe_to_expose() {
-                        HttpError::for_bad_request(None, format!("Failed to generate token: {err}"))
-                    } else {
-                        HttpError::for_internal_error("Failed to generate token".to_string())
-                    }
-                })?
-            }
-        };
-
-        return Ok(HttpResponseOk(token));
-    }
-
-    Err(HttpError::for_bad_request(
-        Some("NO_MATCH".to_string()),
-        "Token is not authorized for any resources".to_string(),
-    ))
+        })?,
+    }))
 }

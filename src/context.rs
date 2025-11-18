@@ -10,14 +10,15 @@ use std::{
 use thiserror::Error;
 
 use crate::{
-    authorizations::{Authorizations, TokenAuthorization},
     oidc::{OidcError, ResolvedOidcConfig},
+    policy::Policy,
     settings::Settings,
     token::{
         github::{GitHubTokenError, GitHubTokens},
         oxide::{OxideError, OxideTokens},
     },
 };
+use oso::OsoError;
 
 #[derive(Debug, Error)]
 pub enum ContextBuildError {
@@ -29,6 +30,8 @@ pub enum ContextBuildError {
     GitHubTokens(#[from] GitHubTokenError),
     #[error("Encountered an error configuring OIDC providers")]
     Oidc(#[from] OidcError),
+    #[error("Failed to initialize the Oso policy")]
+    Oso(#[from] OsoError),
 }
 
 #[derive(Debug)]
@@ -40,13 +43,13 @@ pub struct ResolvedOidcProvider {
 pub struct Context {
     pub settings: Settings,
     pub providers: HashMap<String, Arc<RwLock<ResolvedOidcProvider>>>,
-    pub authorizations: HashMap<String, Vec<TokenAuthorization>>,
     pub oxide_tokens: OxideTokens,
     pub github_tokens: GitHubTokens,
+    pub policy: Policy,
 }
 
 impl Context {
-    pub async fn new(settings: Settings, auths: Authorizations) -> Result<Self, ContextBuildError> {
+    pub async fn new(settings: Settings) -> Result<Self, ContextBuildError> {
         let client = reqwest::Client::new();
 
         let mut providers = HashMap::new();
@@ -62,17 +65,11 @@ impl Context {
             providers.insert(issuer, Arc::new(RwLock::new(resolved)));
         }
 
-        let mut authorizations: HashMap<String, Vec<TokenAuthorization>> = HashMap::new();
-        for authorization in auths.authorizations {
-            let entry = authorizations.entry(authorization.authorization.issuer.clone());
-            entry.or_default().push(authorization);
-        }
-
         Ok(Context {
             providers,
-            authorizations,
             oxide_tokens: OxideTokens::new(&settings)?,
             github_tokens: GitHubTokens::new(&settings)?,
+            policy: Policy::new(&settings.policy_path)?,
             settings,
         })
     }

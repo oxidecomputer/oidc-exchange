@@ -6,6 +6,7 @@ use crate::endpoints::Token;
 use crate::settings::Settings;
 use jsonwebtoken::{Algorithm, EncodingKey};
 use reqwest::{Client, RequestBuilder, StatusCode};
+use schemars::JsonSchema;
 use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use std::collections::HashMap;
@@ -14,7 +15,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 static USER_AGENT: &str = "https://github.com/oxidecomputer/oidc-exchange";
 
-#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, JsonSchema, Hash, PartialEq, Eq)]
 pub struct GitHubTokenRequest {
     pub repositories: Vec<String>,
     pub permissions: Vec<String>,

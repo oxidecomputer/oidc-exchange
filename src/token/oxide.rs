@@ -3,6 +3,8 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 use oxide::{ByteStream, Client, ClientConfig, ClientConsoleAuthExt, OxideAuthError};
+use schemars::JsonSchema;
+use secrecy::ExposeSecret as _;
 use serde::Deserialize;
 use std::{collections::HashMap, error::Error as StdError};
 use tap::TapFallible;
@@ -14,7 +16,6 @@ use crate::{
     settings::Settings,
     util::{ByteStreamError, parse_bytestream},
 };
-use secrecy::ExposeSecret as _;
 
 static CLIENT_ID: &str = "730ae5f1-a728-4a5d-9a06-cf09b653cca6";
 
@@ -34,7 +35,7 @@ pub enum OxideError {
     OxideByteError(#[from] oxide::Error<ByteStream>),
 }
 
-#[derive(Clone, Debug, Deserialize, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, JsonSchema, Hash, PartialEq, Eq)]
 pub struct OxideTokenRequest {
     pub silo: String,
     pub duration: u32,
