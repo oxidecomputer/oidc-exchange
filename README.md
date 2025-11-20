@@ -217,10 +217,18 @@ log_directory = "path/to/logs"
 [[providers]]
 url = "https://token.actions.githubusercontent.com/.well-known/openid-configuration"
 
-# The [oxide_silos] block defines the list of Oxide silos a token can be
-# requested for, and the credential used to generate those tokens. The block is
-# optional, and if omitted no Oxide silo tokens will be issued.
-[oxide_silos]
+# The [oxide] blcok defines the configuration for issuing Oxide silo tokens. The
+# block is optional, and if omitted no Oxide silo tokens will be issued.
+[oxide]
+# Whether to allow issuing tokens without an expiration. Optional, the default
+# is to forbid issuing them.
+allow_tokens_without_expiry = false
+# Maximum duration tokens can have. Optional, the default is 3600 seconds.
+max_duration = 3600
+# List of silos a token can be requested for, and the credential used to
+# generate those tokens. The tokens will have the same permissions as the user
+# the credential is from.
+[oxide.silos]
 "https://oxide.sys.rack2.eng.oxide.computer" = "oxide-token-helloworld"
 "https://example.sys.rack2.eng.oxide.computer" = "oxide-token-helloworld"
 

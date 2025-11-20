@@ -19,7 +19,7 @@ pub struct Settings {
     pub port: Option<u16>,
     pub providers: Vec<OidcProvider>,
     #[serde(default)]
-    pub oxide_silos: HashMap<String, SecretString>,
+    pub oxide: Option<SettingsOxide>,
     #[serde(default)]
     pub github: Option<SettingsGitHubApp>,
 }
@@ -38,7 +38,25 @@ impl Settings {
 }
 
 #[derive(Debug, Deserialize)]
+pub struct SettingsOxide {
+    #[serde(default = "default_max_duration")]
+    pub max_duration: u32,
+    #[serde(default = "default_allow_tokens_without_expiry")]
+    pub allow_tokens_without_expiry: bool,
+    #[serde(default)]
+    pub silos: HashMap<String, SecretString>,
+}
+
+#[derive(Debug, Deserialize)]
 pub struct SettingsGitHubApp {
     pub client_id: String,
     pub private_key_path: PathBuf,
+}
+
+fn default_max_duration() -> u32 {
+    3600
+}
+
+fn default_allow_tokens_without_expiry() -> bool {
+    false
 }

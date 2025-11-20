@@ -33,6 +33,12 @@ pub enum OxideError {
     Oxide(#[from] oxide::Error<oxide::types::Error>),
     #[error("Remote service error")]
     OxideByteError(#[from] oxide::Error<ByteStream>),
+    #[error("The Oxide token provider is not configured")]
+    NotConfigured,
+    #[error("Tokens with no expiration are not allowed")]
+    NoExpirationDisallowed,
+    #[error("The duration of this token is more than the maximum of {0} seconds")]
+    TooLongExpiration(u32),
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema, Hash, PartialEq, Eq)]
@@ -43,13 +49,17 @@ pub struct OxideTokenRequest {
 
 #[derive(Debug)]
 pub struct OxideTokens {
-    clients: HashMap<String, Client>,
+    state: Option<State>,
 }
 
 impl OxideTokens {
     pub fn new(settings: &Settings) -> Result<Self, OxideError> {
+        let Some(settings) = &settings.oxide else {
+            return Ok(Self { state: None });
+        };
+
         let mut clients = HashMap::new();
-        for (silo, token) in &settings.oxide_silos {
+        for (silo, token) in &settings.silos {
             let config = ClientConfig::default().with_host_and_token(silo, token.expose_secret());
             clients.insert(
                 silo.clone(),
@@ -57,11 +67,28 @@ impl OxideTokens {
                     .map_err(|e| OxideError::AuthFailed(silo.clone(), e))?,
             );
         }
-        Ok(Self { clients })
+        Ok(Self {
+            state: Some(State {
+                clients,
+                allow_tokens_without_expiry: settings.allow_tokens_without_expiry,
+                max_duration: settings.max_duration,
+            }),
+        })
     }
 
     pub async fn get(&self, request: &OxideTokenRequest) -> Result<Token, Box<dyn StdError>> {
-        let client = self
+        let Some(state) = &self.state else {
+            return Err(OxideError::NotConfigured.into());
+        };
+
+        if request.duration <= 0 && !state.allow_tokens_without_expiry {
+            return Err(OxideError::NoExpirationDisallowed.into());
+        }
+        if request.duration > state.max_duration {
+            return Err(OxideError::TooLongExpiration(state.max_duration).into());
+        }
+
+        let client = state
             .clients
             .get(&request.silo)
             .ok_or_else(|| OxideError::SiloNotConfigured(request.silo.clone()))?;
@@ -131,4 +158,11 @@ impl OxideTokens {
             access_token: access_token_response.access_token,
         })
     }
+}
+
+#[derive(Debug)]
+struct State {
+    clients: HashMap<String, Client>,
+    allow_tokens_without_expiry: bool,
+    max_duration: u32,
 }
