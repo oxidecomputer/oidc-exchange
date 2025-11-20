@@ -168,6 +168,20 @@ a time.
 [polar]: https://www.osohq.com/docs/oss/learn/polar-foundations.html
 [gha-claims]: https://docs.github.com/en/actions/reference/security/oidc
 
+### Polar utility functions
+
+Some custom utility functions are provided for use within the Oso policy:
+
+* **`utils.concat(a, b)`**: concatenate two strings together:
+
+  ```polar
+  allow_request(claims, request: Oxide) if
+    request.silo == utils.concat(
+      utils.concat("https://", claims.environment),
+      ".sys.rack2.eng.oxide.computer"
+    );
+  ```
+
 ## Configuration
 
 The main configuration of the service is defined into a TOML file. Multiple

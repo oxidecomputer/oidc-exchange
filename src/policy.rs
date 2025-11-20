@@ -4,7 +4,7 @@
 
 use crate::endpoints::TokenRequest;
 use crate::oidc::Claims;
-use oso::{Oso, OsoError, PolarClass, ToPolar};
+use oso::{Class, Oso, OsoError, PolarClass, ToPolar};
 use std::fmt::Display;
 use std::path::Path;
 
@@ -17,6 +17,7 @@ impl Policy {
         let mut oso = Oso::new();
         oso.register_class(GitHubClass::get_polar_class())?;
         oso.register_class(OxideClass::get_polar_class())?;
+        oso.register_class(create_utils_class())?;
         oso.load_files(vec![path])?;
         Ok(Self { oso })
     }
@@ -106,6 +107,16 @@ impl std::fmt::Display for GitHubClass {
             self.permission, self.repository
         )
     }
+}
+
+pub(super) fn create_utils_class() -> Class {
+    #[derive(Clone, PolarClass)]
+    #[polar(class_name = "utils")]
+    struct Utils;
+
+    Utils::get_polar_class_builder()
+        .add_class_method("concat", |a: String, b: String| format!("{a}{b}"))
+        .build()
 }
 
 #[derive(Debug, thiserror::Error)]
