@@ -6,7 +6,7 @@ use oxide::{ByteStream, Client, ClientConfig, ClientConsoleAuthExt, OxideAuthErr
 use schemars::JsonSchema;
 use secrecy::ExposeSecret as _;
 use serde::Deserialize;
-use std::{collections::HashMap, error::Error as StdError};
+use std::collections::HashMap;
 use tap::TapFallible;
 use thiserror::Error;
 
@@ -39,6 +39,22 @@ pub enum OxideError {
     NoExpirationDisallowed,
     #[error("The duration of this token is more than the maximum of {0} seconds")]
     TooLongExpiration(u32),
+}
+
+impl OxideError {
+    pub fn safe_to_expose(&self) -> bool {
+        match self {
+            OxideError::ByteStream(..)
+            | OxideError::DeviceAuthRequest(..)
+            | OxideError::AuthFailed(..)
+            | OxideError::Oxide(..)
+            | OxideError::OxideByteError(..) => false,
+            OxideError::SiloNotConfigured(..)
+            | OxideError::NotConfigured
+            | OxideError::NoExpirationDisallowed
+            | OxideError::TooLongExpiration(..) => true,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema, Hash, PartialEq, Eq)]
@@ -76,7 +92,7 @@ impl OxideTokens {
         })
     }
 
-    pub async fn get(&self, request: &OxideTokenRequest) -> Result<Token, Box<dyn StdError>> {
+    pub async fn get(&self, request: &OxideTokenRequest) -> Result<Token, OxideError> {
         let Some(state) = &self.state else {
             return Err(OxideError::NotConfigured.into());
         };
