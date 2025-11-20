@@ -72,6 +72,7 @@ pub async fn exchange(
 
     ctx.policy
         .ensure_allowed(&claims, &body.request)
+        .await
         .map_err(|err| {
             tracing::info!(?err, "Failed to match the token against the policy");
             HttpError::for_bad_request(None, format!("Token doesn't match the policy: {err}"))

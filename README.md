@@ -155,9 +155,13 @@ silo) and `duration` (the number of seconds the token will be valid for).
 ### Polar scheme for `request` of type `GitHub`
 
 The `request` argument in Polar policies can be of type `GitHub` when the user
-requested a GitHub token. The two fields available are `repository` (the name of
-one of the repositories being requested) and `permission` (the name of one of
-the requested permissions).
+requested a GitHub token. There are three fields available:
+
+* `permission`: the name of one of the requested permissions.
+* `repository`: the name of one of the repositories being requested.
+* `repository_visibility`: the visibility of the repository in the `repository`
+  field. Can be one of `public`, `internal` or `private`. The repository
+  visibility is fetched by oidc-exchange and cached for an hour.
 
 To simplify how policies are written, when authorizing GitHub token requests
 oidc-exchange will individually test whether all permutations of repositories
