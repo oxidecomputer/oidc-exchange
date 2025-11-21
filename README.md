@@ -155,9 +155,13 @@ silo) and `duration` (the number of seconds the token will be valid for).
 ### Polar scheme for `request` of type `GitHub`
 
 The `request` argument in Polar policies can be of type `GitHub` when the user
-requested a GitHub token. The two fields available are `repository` (the name of
-one of the repositories being requested) and `permission` (the name of one of
-the requested permissions).
+requested a GitHub token. There are three fields available:
+
+* `permission`: the name of one of the requested permissions.
+* `repository`: the name of one of the repositories being requested.
+* `repository_visibility`: the visibility of the repository in the `repository`
+  field. Can be one of `public`, `internal` or `private`. The repository
+  visibility is fetched by oidc-exchange and cached for an hour.
 
 To simplify how policies are written, when authorizing GitHub token requests
 oidc-exchange will individually test whether all permutations of repositories
@@ -167,6 +171,20 @@ a time.
 
 [polar]: https://www.osohq.com/docs/oss/learn/polar-foundations.html
 [gha-claims]: https://docs.github.com/en/actions/reference/security/oidc
+
+### Polar utility functions
+
+Some custom utility functions are provided for use within the Oso policy:
+
+* **`utils.concat(a, b)`**: concatenate two strings together:
+
+  ```polar
+  allow_request(claims, request: Oxide) if
+    request.silo == utils.concat(
+      utils.concat("https://", claims.environment),
+      ".sys.rack2.eng.oxide.computer"
+    );
+  ```
 
 ## Configuration
 
@@ -199,10 +217,18 @@ log_directory = "path/to/logs"
 [[providers]]
 url = "https://token.actions.githubusercontent.com/.well-known/openid-configuration"
 
-# The [oxide_silos] block defines the list of Oxide silos a token can be
-# requested for, and the credential used to generate those tokens. The block is
-# optional, and if omitted no Oxide silo tokens will be issued.
-[oxide_silos]
+# The [oxide] blcok defines the configuration for issuing Oxide silo tokens. The
+# block is optional, and if omitted no Oxide silo tokens will be issued.
+[oxide]
+# Whether to allow issuing tokens without an expiration. Optional, the default
+# is to forbid issuing them.
+allow_tokens_without_expiry = false
+# Maximum duration tokens can have. Optional, the default is 3600 seconds.
+max_duration = 3600
+# List of silos a token can be requested for, and the credential used to
+# generate those tokens. The tokens will have the same permissions as the user
+# the credential is from.
+[oxide.silos]
 "https://oxide.sys.rack2.eng.oxide.computer" = "oxide-token-helloworld"
 "https://example.sys.rack2.eng.oxide.computer" = "oxide-token-helloworld"
 
