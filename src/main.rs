@@ -31,7 +31,7 @@ async fn main() -> Result<(), anyhow::Error> {
     let settings = Settings::new(config_path.map(|path| vec![path]))?;
 
     let (writer, _guard) = if let Some(log_directory) = &settings.log_directory {
-        let file_appender = tracing_appender::rolling::daily(log_directory, "oidc-exchange.log");
+        let file_appender = tracing_appender::rolling::daily(log_directory, "oidcx.log");
         tracing_appender::non_blocking(file_appender)
     } else {
         NonBlocking::new(std::io::stdout())

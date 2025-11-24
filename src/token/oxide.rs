@@ -25,7 +25,7 @@ pub enum OxideError {
     ByteStream(#[from] ByteStreamError),
     #[error("Failed to issue device access token request")]
     DeviceAuthRequest(#[from] DeviceAccessTokenError),
-    #[error("The silo {0} is not configured in this instance of oidc-exchange")]
+    #[error("The silo {0} is not configured in this instance of oidcx")]
     SiloNotConfigured(String),
     #[error("Failed to authenticate with silo {0}")]
     AuthFailed(String, #[source] OxideAuthError),

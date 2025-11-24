@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-static USER_AGENT: &str = "https://github.com/oxidecomputer/oidc-exchange";
+static USER_AGENT: &str = "https://github.com/oxidecomputer/oidcx";
 
 #[derive(Clone, Debug, Deserialize, JsonSchema, Hash, PartialEq, Eq)]
 pub struct GitHubTokenRequest {
@@ -192,7 +192,7 @@ where
 
 #[derive(Debug, thiserror::Error)]
 pub enum GitHubTokenError {
-    #[error("GitHub credentials are not configured for this instance of oidc-exchange")]
+    #[error("GitHub credentials are not configured for this instance of oidcx")]
     NoCredentials,
     #[error("failed to read the GitHub App private key located at {}", .0.display())]
     ReadPrivateKey(PathBuf, #[source] std::io::Error),
@@ -214,7 +214,7 @@ pub enum GitHubTokenError {
     DuplicatePermission(String),
     #[error("The permission string {0} is not a valid permission")]
     NotAPermission(String),
-    #[error("oidc-exchange's GitHub App is not installed on {0}")]
+    #[error("oidcx's GitHub App is not installed on {0}")]
     AppNotInstalled(String),
 }
 

@@ -4,9 +4,9 @@ A service that exchanges OIDC identity tokens with GitHub and Oxide short-lived
 tokens. The source is released under the MPL 2.0 license.
 
 The recommended way to interact with the service from GitHub Actions is to use
-[oxidecomputer/oidc-exchange-action].
+[oxidecomputer/oidcx-action].
 
-[oxidecomputer/oidc-exchange-action]: https://github.com/oxidecomputer/oidc-exchnage-action
+[oxidecomputer/oidcx-action]: https://github.com/oxidecomputer/oidc-exchnage-action
 
 ## Exchange flow
 
@@ -15,8 +15,8 @@ from a trusted OpenID Connect identity provider with a temporary token from one
 of the supported services.
 
 The JWT must have an `aud` (audience) matching the protocol and hostname of the
-oidc-exchange instance (for example `https://oidc-exchange.example.com`). This
-ensures a JWT meant for oidc-exchange cannot be used for other services.
+oidcx instance (for example `https://oidcx.example.com`). This
+ensures a JWT meant for oidcx cannot be used for other services.
 
 The claims in the JWT and in the request must adhere to the configured
 authorization policy. The authorization policy differs between deployment, so
@@ -46,7 +46,7 @@ An example of a valid request:
 {
   "jwt": "eyJhbGciOiJIUz...",
   "service": "github",
-  "repositories": ["oxidecomputer/oidc-exchange"],
+  "repositories": ["oxidecomputer/oidcx"],
   "permissions": ["contents:write", "pull_requests:write"]
 }
 ```
@@ -56,7 +56,7 @@ Tokens will be valid for an hour.
 Note that the permissions that can be granted and the repositories that can be
 accessed depend on the permissions the underlying GitHub App generating the
 token has, and whether it is installed in the repositories you are trying to
-access. Even if a request is authorized by oidc-exchange, it might be rejected
+access. Even if a request is authorized by oidcx, it might be rejected
 if the GitHub App cannot generate the requested token.
 
 ### Requesting Oxide silo tokens
@@ -80,7 +80,7 @@ An example of a valid request:
 }
 ```
 
-Note that credentials for the requested silo must be present in oidc-exchange's
+Note that credentials for the requested silo must be present in oidcx's
 configuration. The resulting token will have the same level of access as the
 credential in the configuration.
 
@@ -89,7 +89,7 @@ credential in the configuration.
 ## Authorization policy
 
 The authorization policy is defined using the [Polar language][polar].
-oidc-exchange will check whether the `allow_request(claims, request)` Polar
+oidcx will check whether the `allow_request(claims, request)` Polar
 query is authorized, passing the OIDC claims in the `claims` parameter and the
 `Oxide` or `GitHub` token request in the `request` parameter.
 
@@ -98,9 +98,9 @@ A very simple authorization policy can be:
 ```polar
 allow_request(claims, request) if
   claims.iss == "https://token.actions.githubusercontent.com" and
-  claims.repository == "oxidecomputer/oidc-exchange" and
+  claims.repository == "oxidecomputer/oidcx" and
   request matches GitHub and
-  request.repository == "oxidecomputer/oidc-exchange-action" and
+  request.repository == "oxidecomputer/oidcx-action" and
   request.permission == "contents:write";
 ```
 
@@ -127,7 +127,7 @@ allow_from_github_actions(claims, request: Oxide) if
   request.duration <= 3600 and
   claims.repository in [
     "oxidecomputer/oidc-exchnage",
-    "oxidecomputer/oidc-exchange-action",
+    "oxidecomputer/oidcx-action",
   ];
 ```
 
@@ -141,7 +141,7 @@ repositories to request an Oxide token.
 
 The `claims` argument in Polar policies contain all of the claims included in
 the OIDC JWT. It must include `iss` and `aud` (note that the audience is checked
-by oidc-exchange *before* the Polar policy, so you don't need to check it
+by oidcx *before* the Polar policy, so you don't need to check it
 again), and the rest of the claims depend on what your identity provider claims.
 
 For GitHub Actions, [GitHub provides a list of included claims][gha-claims].
@@ -160,7 +160,7 @@ one of the repositories being requested) and `permission` (the name of one of
 the requested permissions).
 
 To simplify how policies are written, when authorizing GitHub token requests
-oidc-exchange will individually test whether all permutations of repositories
+oidcx will individually test whether all permutations of repositories
 and permissions are valid, and reject the request if any of them are not. This
 means in the policy you only check one `(repository, permission)` permutation at
 a time.
@@ -180,10 +180,10 @@ directory will be loaded.
 policy_path = "path/to/policy.polar"
 
 # Expected content of the `aud` claim in JWTs. JWTs with different audiences
-# will be rejected. For compatibility with oxidecomputer/oidc-exchange-action,
+# will be rejected. For compatibility with oxidecomputer/oidcx-action,
 # this must be the URL the service is deployed to. It's strongly recommended to
 # use the server URL in other scenarios too. Required.
-audience = "https://hostname.of.oidc-exchange.example"
+audience = "https://hostname.of.oidcx.example"
 
 # Port to bind the service to. Optional, defaults to 8080.
 port = 8080
@@ -193,9 +193,9 @@ port = 8080
 log_directory = "path/to/logs"
 
 # The [[providers]] block defines one OIDC identity provider authorized to issue
-# JWTs accepted by oidc-exchange. Multiple blocks can be provided to support
+# JWTs accepted by oidcx. Multiple blocks can be provided to support
 # more than one IdP. The URL needs to point to the provider's OpenID config URL.
-# At least one is required for oidc-exchange to do anything useful.
+# At least one is required for oidcx to do anything useful.
 [[providers]]
 url = "https://token.actions.githubusercontent.com/.well-known/openid-configuration"
 

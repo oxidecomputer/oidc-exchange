@@ -21,10 +21,10 @@ jobs:
 
       - name: Build Release Binary
         run: |
-          cargo build --release --package oidc-exchange
-          mv target/release/oidc-exchange target/release/oidc-exchange-x86_64-unknown-linux-gnu
+          cargo build --release --package oidcx
+          mv target/release/oidcx target/release/oidcx-x86_64-unknown-linux-gnu
 
       - uses: ncipollo/release-action@bcfe5470707e8832e12347755757cec0eb3c22af # v1
         with:
           allowUpdates: true
-          artifacts: "target/release/oidc-exchange-x86_64-unknown-linux-gnu"
+          artifacts: "target/release/oidcx-x86_64-unknown-linux-gnu"
