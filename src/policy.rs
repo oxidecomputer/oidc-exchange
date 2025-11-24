@@ -4,24 +4,35 @@
 
 use crate::endpoints::TokenRequest;
 use crate::oidc::Claims;
-use oso::{Oso, OsoError, PolarClass, ToPolar};
+use crate::token::github::{GitHubTokenError, GitHubTokens};
+use chrono::{DateTime, Duration, Utc};
+use oso::{Class, Oso, OsoError, PolarClass, ToPolar};
+use std::collections::HashMap;
 use std::fmt::Display;
 use std::path::Path;
+use std::sync::{Arc, Mutex};
 
 pub struct Policy {
     oso: Oso,
+    github_tokens: GitHubTokens,
+    github_visibility_cache: Arc<Mutex<HashMap<String, CachedVisibility>>>,
 }
 
 impl Policy {
-    pub fn new(path: &Path) -> Result<Self, OsoError> {
+    pub fn new(path: &Path, github_tokens: GitHubTokens) -> Result<Self, OsoError> {
         let mut oso = Oso::new();
         oso.register_class(GitHubClass::get_polar_class())?;
         oso.register_class(OxideClass::get_polar_class())?;
+        oso.register_class(create_utils_class())?;
         oso.load_files(vec![path])?;
-        Ok(Self { oso })
+        Ok(Self {
+            oso,
+            github_tokens,
+            github_visibility_cache: Arc::new(Mutex::new(HashMap::new())),
+        })
     }
 
-    pub fn ensure_allowed(
+    pub async fn ensure_allowed(
         &self,
         claims: &Claims,
         request: &TokenRequest,
@@ -36,11 +47,14 @@ impl Policy {
             ),
             TokenRequest::GitHub(github) => {
                 for repository in &github.repositories {
+                    let repository_visibility = self.github_visibility(repository).await?;
+
                     for permission in &github.permissions {
                         self.ensure_permutation(
                             claims,
                             GitHubClass {
                                 repository: repository.clone(),
+                                repository_visibility: repository_visibility.clone(),
                                 permission: permission.clone(),
                             },
                         )?;
@@ -65,6 +79,33 @@ impl Policy {
             Some(Err(e)) => Err(e.into()),
             None => Err(PolicyError::NotMatching(string_repr)),
         }
+    }
+
+    async fn github_visibility(&self, repo: &str) -> Result<String, PolicyError> {
+        // We are not holding the lock across the await point below.
+        {
+            let cache = self.github_visibility_cache.lock().unwrap();
+            if let Some(cached) = cache.get(repo)
+                && cached.expires_at >= Utc::now()
+            {
+                return Ok(cached.visibility.clone());
+            }
+        }
+
+        let visibility = self
+            .github_tokens
+            .repository_visibility(repo)
+            .await
+            .map_err(|e| PolicyError::GetVisibility(repo.into(), e))?;
+
+        self.github_visibility_cache.lock().unwrap().insert(
+            repo.into(),
+            CachedVisibility {
+                visibility: visibility.clone(),
+                expires_at: Utc::now() + Duration::hours(1),
+            },
+        );
+        Ok(visibility)
     }
 }
 
@@ -95,6 +136,8 @@ struct GitHubClass {
     #[polar(attribute)]
     repository: String,
     #[polar(attribute)]
+    repository_visibility: String,
+    #[polar(attribute)]
     permission: String,
 }
 
@@ -108,10 +151,27 @@ impl std::fmt::Display for GitHubClass {
     }
 }
 
+struct CachedVisibility {
+    visibility: String,
+    expires_at: DateTime<Utc>,
+}
+
+pub(super) fn create_utils_class() -> Class {
+    #[derive(Clone, PolarClass)]
+    #[polar(class_name = "utils")]
+    struct Utils;
+
+    Utils::get_polar_class_builder()
+        .add_class_method("concat", |a: String, b: String| format!("{a}{b}"))
+        .build()
+}
+
 #[derive(Debug, thiserror::Error)]
 pub enum PolicyError {
     #[error("Failed to evaluate the authorization policy")]
     Oso(#[from] OsoError),
     #[error("{0} does not match the authorization policy")]
     NotMatching(String),
+    #[error("failed to retrieve the repository visibility for {0}")]
+    GetVisibility(String, #[source] GitHubTokenError),
 }

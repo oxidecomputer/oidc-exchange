@@ -11,6 +11,7 @@ use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 static USER_AGENT: &str = "https://github.com/oxidecomputer/oidcx";
@@ -28,9 +29,9 @@ struct State {
     private_key: EncodingKey,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct GitHubTokens {
-    state: Option<State>,
+    state: Option<Arc<State>>,
 }
 
 impl GitHubTokens {
@@ -40,12 +41,12 @@ impl GitHubTokens {
                 GitHubTokenError::ReadPrivateKey(settings.private_key_path.clone(), e)
             })?;
             Ok(GitHubTokens {
-                state: Some(State {
+                state: Some(Arc::new(State {
                     client: Client::new(),
                     client_id: settings.client_id.clone(),
                     private_key: EncodingKey::from_rsa_pem(&private_key)
                         .map_err(GitHubTokenError::LoadPrivateKey)?,
-                }),
+                })),
             })
         } else {
             Ok(GitHubTokens { state: None })
@@ -147,6 +148,29 @@ impl GitHubTokens {
         Ok(Token {
             access_token: access_token.token,
         })
+    }
+
+    pub async fn repository_visibility(&self, repo: &str) -> Result<String, GitHubTokenError> {
+        #[derive(serde::Deserialize)]
+        struct Repo {
+            visibility: String,
+        }
+
+        let state = self.state.as_ref().ok_or(GitHubTokenError::NoCredentials)?;
+        let token = self
+            .get(&GitHubTokenRequest {
+                repositories: vec![repo.into()],
+                permissions: vec!["metadata:read".into()],
+            })
+            .await?;
+        Ok(github_request::<Repo>(
+            state
+                .client
+                .get(format!("https://api.github.com/repos/{repo}"))
+                .bearer_auth(token.access_token),
+        )
+        .await?
+        .visibility)
     }
 }
 

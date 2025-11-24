@@ -65,11 +65,13 @@ impl Context {
             providers.insert(issuer, Arc::new(RwLock::new(resolved)));
         }
 
+        let github_tokens = GitHubTokens::new(&settings)?;
+
         Ok(Context {
             providers,
+            policy: Policy::new(&settings.policy_path, github_tokens.clone())?,
             oxide_tokens: OxideTokens::new(&settings)?,
-            github_tokens: GitHubTokens::new(&settings)?,
-            policy: Policy::new(&settings.policy_path)?,
+            github_tokens,
             settings,
         })
     }

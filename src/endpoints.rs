@@ -72,6 +72,7 @@ pub async fn exchange(
 
     ctx.policy
         .ensure_allowed(&claims, &body.request)
+        .await
         .map_err(|err| {
             tracing::info!(?err, "Failed to match the token against the policy");
             HttpError::for_bad_request(None, format!("Token doesn't match the policy: {err}"))
@@ -80,7 +81,11 @@ pub async fn exchange(
     Ok(HttpResponseOk(match &body.request {
         TokenRequest::Oxide(oxide) => ctx.oxide_tokens.get(oxide).await.map_err(|err| {
             tracing::error!(?err, "Failed to generate token");
-            HttpError::for_internal_error("Failed to generate token".to_string())
+            if err.safe_to_expose() {
+                HttpError::for_bad_request(None, format!("Failed to generate token: {err}"))
+            } else {
+                HttpError::for_internal_error("Failed to generate token".to_string())
+            }
         })?,
         TokenRequest::GitHub(github) => ctx.github_tokens.get(github).await.map_err(|err| {
             tracing::error!(?err, "Failed to generate token");
