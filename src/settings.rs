@@ -6,7 +6,6 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use config::{Config, ConfigError, File};
-use secrecy::SecretString;
 use serde::Deserialize;
 
 use crate::oidc::OidcProvider;
@@ -44,7 +43,7 @@ pub struct SettingsOxide {
     #[serde(default = "default_allow_tokens_without_expiry")]
     pub allow_tokens_without_expiry: bool,
     #[serde(default)]
-    pub silos: HashMap<String, SecretString>,
+    pub silos: HashMap<String, PathBuf>,
 }
 
 #[derive(Debug, Deserialize)]

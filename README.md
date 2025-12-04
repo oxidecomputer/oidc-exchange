@@ -6,7 +6,7 @@ tokens. The source is released under the MPL 2.0 license.
 The recommended way to interact with the service from GitHub Actions is to use
 [oxidecomputer/oidcx-action].
 
-[oxidecomputer/oidcx-action]: https://github.com/oxidecomputer/oidc-exchnage-action
+[oxidecomputer/oidcx-action]: https://github.com/oxidecomputer/oidcx-action
 
 ## Exchange flow
 
@@ -203,8 +203,8 @@ url = "https://token.actions.githubusercontent.com/.well-known/openid-configurat
 # requested for, and the credential used to generate those tokens. The block is
 # optional, and if omitted no Oxide silo tokens will be issued.
 [oxide_silos]
-"https://oxide.sys.rack2.eng.oxide.computer" = "oxide-token-helloworld"
-"https://example.sys.rack2.eng.oxide.computer" = "oxide-token-helloworld"
+"https://oxide.sys.rack2.eng.oxide.computer" = "path/to/oxide-token"
+"https://example.sys.rack2.eng.oxide.computer" = "path/to/example-token"
 
 # The [github] block defines the GitHub App used to issue GitHub tokens. The app
 # must be installed on all repositories a token can be generated for, and must

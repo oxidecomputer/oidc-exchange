@@ -4,9 +4,8 @@
 
 use oxide::{ByteStream, Client, ClientConfig, ClientConsoleAuthExt, OxideAuthError};
 use schemars::JsonSchema;
-use secrecy::ExposeSecret as _;
 use serde::Deserialize;
-use std::collections::HashMap;
+use std::{collections::HashMap, path::PathBuf};
 use tap::TapFallible;
 use thiserror::Error;
 
@@ -25,6 +24,8 @@ pub enum OxideError {
     ByteStream(#[from] ByteStreamError),
     #[error("Failed to issue device access token request")]
     DeviceAuthRequest(#[from] DeviceAccessTokenError),
+    #[error("Silo token located at {0} is malformed")]
+    ReadToken(PathBuf, #[source] std::io::Error),
     #[error("The silo {0} is not configured in this instance of oidcx")]
     SiloNotConfigured(String),
     #[error("Failed to authenticate with silo {0}")]
@@ -48,7 +49,8 @@ impl OxideError {
             | OxideError::DeviceAuthRequest(..)
             | OxideError::AuthFailed(..)
             | OxideError::Oxide(..)
-            | OxideError::OxideByteError(..) => false,
+            | OxideError::OxideByteError(..)
+            | OxideError::ReadToken(..) => false,
             OxideError::SiloNotConfigured(..)
             | OxideError::NotConfigured
             | OxideError::NoExpirationDisallowed
@@ -75,8 +77,10 @@ impl OxideTokens {
         };
 
         let mut clients = HashMap::new();
-        for (silo, token) in &settings.silos {
-            let config = ClientConfig::default().with_host_and_token(silo, token.expose_secret());
+        for (silo, token_path) in &settings.silos {
+            let token = std::fs::read_to_string(&token_path)
+                .map_err(|e| OxideError::ReadToken(token_path.clone(), e))?;
+            let config = ClientConfig::default().with_host_and_token(silo, token);
             clients.insert(
                 silo.clone(),
                 Client::new_authenticated_config(&config)
