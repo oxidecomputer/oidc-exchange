@@ -78,9 +78,8 @@ impl OxideTokens {
 
         let mut clients = HashMap::new();
         for (silo, token_path) in &settings.silos {
-            let token =
-                std::fs::read_to_string(&token_path)
-                    .map_err(|e| OxideError::ReadToken(token_path.clone(), e))?;
+            let token = std::fs::read_to_string(&token_path)
+                .map_err(|e| OxideError::ReadToken(token_path.clone(), e))?;
             let config = ClientConfig::default().with_host_and_token(silo, token);
             clients.insert(
                 silo.clone(),
