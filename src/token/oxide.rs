@@ -5,7 +5,7 @@
 use oxide::{ByteStream, Client, ClientConfig, ClientConsoleAuthExt, OxideAuthError};
 use schemars::JsonSchema;
 use serde::Deserialize;
-use std::{collections::HashMap, path::PathBuf, string::FromUtf8Error};
+use std::{collections::HashMap, path::PathBuf};
 use tap::TapFallible;
 use thiserror::Error;
 
@@ -25,8 +25,6 @@ pub enum OxideError {
     #[error("Failed to issue device access token request")]
     DeviceAuthRequest(#[from] DeviceAccessTokenError),
     #[error("Silo token located at {0} is malformed")]
-    ParseToken(PathBuf, #[source] FromUtf8Error),
-    #[error("Failed to read the silo token located at {0}")]
     ReadToken(PathBuf, #[source] std::io::Error),
     #[error("The silo {0} is not configured in this instance of oidcx")]
     SiloNotConfigured(String),
@@ -52,7 +50,6 @@ impl OxideError {
             | OxideError::AuthFailed(..)
             | OxideError::Oxide(..)
             | OxideError::OxideByteError(..)
-            | OxideError::ParseToken(..)
             | OxideError::ReadToken(..) => false,
             OxideError::SiloNotConfigured(..)
             | OxideError::NotConfigured
@@ -81,11 +78,9 @@ impl OxideTokens {
 
         let mut clients = HashMap::new();
         for (silo, token_path) in &settings.silos {
-            let token = String::from_utf8(
-                std::fs::read(&token_path)
-                    .map_err(|e| OxideError::ReadToken(token_path.clone(), e))?,
-            )
-            .map_err(|e| OxideError::ParseToken(token_path.clone(), e))?;
+            let token =
+                std::fs::read_to_string(&token_path)
+                    .map_err(|e| OxideError::ReadToken(token_path.clone(), e))?;
             let config = ClientConfig::default().with_host_and_token(silo, token);
             clients.insert(
                 silo.clone(),
