@@ -6,7 +6,7 @@ tokens. The source is released under the MPL 2.0 license.
 The recommended way to interact with the service from GitHub Actions is to use
 [oxidecomputer/oidcx-action].
 
-[oxidecomputer/oidcx-action]: https://github.com/oxidecomputer/oidc-exchnage-action
+[oxidecomputer/oidcx-action]: https://github.com/oxidecomputer/oidcx-action
 
 ## Exchange flow
 
